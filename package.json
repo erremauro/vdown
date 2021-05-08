@@ -1,0 +1,21 @@
+{
+  "name": "vdown",
+  "description": "Vimeo Video Downloader",
+  "version": "0.0.1",
+  "author": "Roberto Mauro <erremauro@icloud.com>",
+  "license": "MIT",
+  "bin": "bin/vdown",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/erremauro/vdown.git"
+  },
+  "engines": {
+    "node": ">= 12.0.0"
+  },
+  "dependencies": {
+    "any-shell-escape": "^0.1.1",
+    "commander": "^7.2.0",
+    "ffmpeg-static": "^4.3.0",
+    "rear-logger": "^1.0.0"
+  }
+}
