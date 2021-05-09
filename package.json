@@ -12,6 +12,9 @@
   "engines": {
     "node": ">= 12.0.0"
   },
+  "os": [
+    "!win32"
+  ],
   "dependencies": {
     "any-shell-escape": "^0.1.1",
     "commander": "^7.2.0",
