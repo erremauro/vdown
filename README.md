@@ -1,7 +1,7 @@
 # vdown
 
-**vdown** is Vimeo's video streaming downloader that let you download
-audio/video data from a vimeo stream and combine them into a single video file.
+**vdown** is a Vimeo downloader that let you download audio/video data from a vimeo 
+stream and combine them into a single video file.
 
 ## Install
 
