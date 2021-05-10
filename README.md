@@ -1,14 +1,13 @@
 # vdown
 
-**vdown** is a Vimeo downloader that let you download audio/video data from a vimeo 
-stream and combine them into a single video file.
+**vdown** is a Vimeo downloader that let you download audio/video data from a vimeo stream and combine them into a single video file.
 
 ## Install
 
 ```bash
-git clone https://github.com/erremauro/vdown.git .
-cd ./vdown
-npm install
+git clone https://github.com/erremauro/vdown.git
+cd vdown
+yarn install
 ```
 
 ## How to use it
