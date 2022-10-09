@@ -1,132 +1,199 @@
 #!/usr/bin/env node
-const fs = require('fs')
-const path = require('path')
-const url = require('url')
-const { program } = require('commander')
-const pkg = require('../package.json')
-const logger = require('rear-logger')('vdown')
-const mask = require('../lib/mask')
-const resolvePath = require('../lib/resolve-path')
-const stopwatch = require('../lib/stopwatch')
-const downloader = require('../lib/downloader')
+const fs = require("fs-extra");
+const path = require("path");
+const url = require("url");
+const { program } = require("commander");
+const pkg = require("../package.json");
+const logger = require("rear-logger")("vdown:vdown");
+const mask = require("../lib/mask");
+const resolvePath = require("../lib/resolve-path");
+const stopwatch = require("../lib/stopwatch");
+const downloader = require("../lib/downloader");
 
 program
 	.name(pkg.name)
 	.version(pkg.version)
-	.option('-u, --url <masterURL>', 'master.json URL')
-	.option('-o, --output <file>', 'output file path')
-	.option('-j, --json <file>', 'Download files from a json input')
-	.parse(process.argv)
+	.option("-u, --url <masterURL>", "master.json URL")
+	.option("-o, --output <file>", "output file path")
+	.option("-j, --json <file>", "Download files from a json input")
+	.parse(process.argv);
 
 if (process.argv.length === 2) {
-	return program.help()
+	return program.help();
 	///////
 }
 
-const options = program.opts()
+process.on("SIGINT", async () => {
+	try {
+		await handleQuit();
+		logger.log("");
+		logger.log("%cUser requested quit", "red");
+		process.exit(0);
+	} catch (err) {
+		logger.log("");
+		logger.error(err);
+		process.exit(1);
+	}
+});
 
-stopwatch.start()
-logger.highlight(`${pkg.name} v${pkg.version}`)
+const options = program.opts();
+let tempFiles = [];
+
+stopwatch.start();
+logger.highlight(`${pkg.name} v${pkg.version}`);
 
 // Process a JSON if specified
 if (options.json) {
-	const jsonFile = resolvePath(options.json)
+	const jsonFile = resolvePath(options.json);
 
 	if (!fs.existsSync(jsonFile)) {
-		logger.error(`Could not find json file at path %c"${jsonFile}"`, 'cyan')
-		return
+		logger.error(
+			`Could not find json file at path %c"${jsonFile}"`,
+			"cyan"
+		);
+		return;
 		///////
 	}
-	
+
 	try {
-		const json = require(jsonFile)
+		const json = require(jsonFile);
 		downloadFromJSON(json)
 			.then(() => done())
-			.catch(err => {
-				logger.error(err.message)		
-			})
-	} catch(err) {
-		logger.error(err.message)
-		
-		return
+			.catch((err) => {
+				logger.error(err.message);
+			});
+	} catch (err) {
+		logger.error(err.message);
+
+		return;
 		///////
 	}
 
-	return
+	return;
 }
 
-downloadFromURL(options.url, options.output).then(() => done())
+downloadFromURL(options.url, options.output).then(() => done());
 
 ///////////////////////////////////////////////////////////////
 
+function handleQuit() {
+	let fileCount = tempFiles.length;
+	const promises = tempFiles.map(
+		(file) =>
+			new Promise((resolve, reject) => {
+				fs.remove(file, (err) => {
+					if (err) {
+						return reject(
+							new Error(`Unable to remove file at path "${file}"`)
+						);
+					}
+
+					return resolve();
+				});
+			})
+	);
+	return Promise.all(promises);
+}
+
 async function downloadFromJSON(json) {
-	const dest = json.dest || '.'
-	let promises = json.files.map(file => 
+	const dest = json.dest || ".";
+	let promises = json.files.map((file) =>
 		downloadFromURL(file.url, `${dest}/${file.name}`)
-	)
-	return Promise.all(promises)
+	);
+	return Promise.all(promises);
 }
 
 function downloadFromURL(masterURL, filePath) {
-	return downloader.getJson(url.parse(masterURL).href)
-		.then(json => {
-			const videoData = json.video.pop();
-			const audioData = json.audio.pop();
+	logger.debug("[vdown#downloadFromURL] %o", { masterURL, filePath });
+	return downloader.getJson(url.parse(masterURL).href).then((json) => {
+		const videoData = json.video.pop();
+		const audioData = json.audio.pop();
 
-			const videoBaseUrl = url.resolve(
-				url.resolve(masterURL, json.base_url), 
-				videoData.base_url
-			);
-			
-			const audioBaseUrl = url.resolve(
-				url.resolve(masterURL, json.base_url), 
-				audioData.base_url
-			);
+		const videoBaseUrl = url.resolve(
+			url.resolve(masterURL, json.base_url),
+			videoData.base_url
+		);
 
-			filePath = filePath || `./${json.clip_id}.mp4`
-			const fileName = mask(path.basename(filePath, path.extname(filePath)) + '.mp4')
-			const dirPath = resolvePath(path.dirname(filePath))
-			filePath = path.join(dirPath, fileName)
+		const audioBaseUrl = url.resolve(
+			url.resolve(masterURL, json.base_url),
+			audioData.base_url
+		);
 
-			try {
-				if (!fs.existsSync(dirPath)) {
-					logger.info(`:file_folder: Creating directory %c${dirPath}`, 'cyan')
-					fs.mkdirSync(dirPath, { recursive: true })
-				}	
+		filePath = filePath || `./${json.clip_id}.mp4`;
+		const fileName = mask(
+			path.basename(filePath, path.extname(filePath)) + ".mp4"
+		);
+		const dirPath = resolvePath(path.dirname(filePath));
+		filePath = path.join(dirPath, fileName);
+
+		try {
+			if (!fs.existsSync(dirPath)) {
+				logger.info(
+					`:file_folder: Creating directory %c${dirPath}`,
+					"cyan"
+				);
+				fs.mkdirSync(dirPath, { recursive: true });
 			}
-			catch(err) {
-				logger.error(err.message)
-				return
-				///////
-			}
+		} catch (err) {
+			logger.error(err.message);
+			return;
+			///////
+		}
 
-			logger.info(`:earth_americas: Downloading audio/video data for %c${fileName}`, 'cyan')
+		logger.info(
+			`:earth_americas: Downloading audio/video data for %c${fileName}`,
+			"cyan"
+		);
 
-			return Promise.all([
-				downloader.processFile(
-					videoBaseUrl, 
-					videoData.init_segment,
-					videoData.segments,
-					`${json.clip_id}.m4v`
-				),
-				downloader.processFile(
-					audioBaseUrl, 
-					audioData.init_segment,
-					audioData.segments,
-					`${json.clip_id}.m4a`
-				)
-			])
+		logger.debug("[vdown#downloadFromURL] will download two files:");
+		logger.debug("[vdown#downloadFromURL] %o", [
+			{
+				videoBaseUrl,
+				file: `${json.clip_id}.m4v`,
+			},
+			{
+				audioBaseUrl,
+				file: `${json.clip_id}.m4a`,
+			},
+		]);
+
+		tempFiles.push(`${json.clip_id}.m4v`);
+		tempFiles.push(`${json.clip_id}.m4a`);
+
+		return Promise.all([
+			downloader.processFile(
+				videoBaseUrl,
+				videoData.init_segment,
+				videoData.segments,
+				`${json.clip_id}.m4v`
+			),
+			downloader.processFile(
+				audioBaseUrl,
+				audioData.init_segment,
+				audioData.segments,
+				`${json.clip_id}.m4a`
+			),
+		])
 			.then(() => {
-				logger.info(`:package: Merging data into %c${fileName}`, 'cyan')
-				return downloader.combineFiles(json.clip_id, filePath)
+				logger.info(
+					`:package: Merging data into %c${fileName}`,
+					"cyan"
+				);
+				return downloader.combineFiles(json.clip_id, filePath);
 			})
 			.then(() => {
-				logger.success(`:clapper: Created %c${filePath}`, 'cyan')
-			})
-		})
+				logger.success(`:clapper: Created %c${filePath}`, "cyan");
+			});
+	});
 }
 
-function done() {
-	stopwatch.stop()
-	logger.log(`✨ Done in ${stopwatch.getTimeString()}`)
+async function done() {
+	try {
+		await handleQuit();
+	} catch (err) {
+		logger.error(err);
+	}
+
+	stopwatch.stop();
+	logger.log(`✨ Done in ${stopwatch.getTimeString()}`);
 }
